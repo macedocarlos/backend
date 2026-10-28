@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Roleta de Alunos</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            min-height: 100vh;
+            padding: 30px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .conteudo {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .card h2 {
+            margin-bottom: 20px;
+            color: #1e3c72;
+        }
+
+        textarea {
+            width: 100%;
+            height: 250px;
+            resize: none;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        textarea:focus {
+            border-color: #2a5298;
+        }
+
+        .botoes {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        .btn-adicionar {
+            background: #198754;
+            color: white;
+        }
+
+        .btn-girar {
+            background: #dc3545;
+            color: white;
+            font-size: 20px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .btn-resetar {
+            background: #6c757d;
+            color: white;
+        }
+
+        .roleta-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            margin: 20px auto;
+        }
+
+        .ponteiro {
+            position: absolute;
+            top: -5px;
+            z-index: 10;
+
+            width: 0;
+            height: 0;
+
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 35px solid #dc3545;
+
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
+        }
+
+        canvas {
+            border-radius: 50%;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+
+        .resultado {
+            text-align: center;
+            margin-top: 20px;
+            min-height: 70px;
+        }
+
+        .resultado span {
+            display: block;
+            color: #777;
+            margin-bottom: 5px;
+        }
+
+        #alunoSorteado {
+            color: #dc3545;
+            font-size: 30px;
+            font-weight: bold;
+        }
+
+        .listas {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .lista {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .lista h3 {
+            margin-bottom: 10px;
+            color: #1e3c72;
+        }
+
+        .lista ul {
+            list-style: none;
+        }
+
+        .lista li {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .contador {
+            margin-top: 10px;
+            color: #666;
+        }
+
+        @media (max-width: 800px) {
+            .conteudo {
+                grid-template-columns: 1fr;
+            }
+
+            .listas {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🎯 Roleta de Alunos</h1>
+
+    <div class="conteudo">
+
+        <!-- CADASTRO -->
+        <div class="card">
+
+            <h2>👨‍🎓 Lista de Alunos</h2>
+
+            <textarea
+                id="listaAlunos"
+                placeholder="Digite um aluno por linha...
+
+Exemplo:
+João
+Maria
+Pedro
+Ana
+Carlos
+Beatriz"></textarea>
+
+            <div class="botoes">
+
+                <button
+                    class="btn-adicionar"
+                    onclick="carregarAlunos()">
+                    Carregar Alunos
+                </button>
+
+                <button
+                    class="btn-resetar"
+                    onclick="resetar()">
+                    Reiniciar
+                </button>
+
+            </div>
+
+            <div class="contador">
+                Alunos disponíveis:
+                <strong id="contador">0</strong>
+            </div>
+
+        </div>
+
+
+        <!-- ROLETA -->
+        <div class="card">
+
+            <h2>🎡 Sorteio</h2>
+
+            <div class="roleta-container">
+
+                <div class="ponteiro"></div>
+
+                <canvas
+                    id="roleta"
+                    width="400"
+                    height="400">
+                </canvas>
+
+            </div>
+
+            <button
+                class="btn-girar"
+                onclick="girarRoleta()">
+
+                🎰 GIRAR ROLETA
+
+            </button>
+
+            <div class="resultado">
+
+                <span>Aluno sorteado:</span>
+
+                <div id="alunoSorteado">
+                    —
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- LISTAS -->
+
+    <div class="card" style="margin-top:30px">
+
+        <div class="listas">
+
+            <div class="lista">
+
+                <h3>👥 Alunos disponíveis</h3>
+
+                <ul id="listaDisponiveis"></ul>
+
+            </div>
+
+            <div class="lista">
+
+                <h3>🏆 Sorteados</h3>
+
+                <ul id="listaSorteados"></ul>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+    const canvas = document.getElementById("roleta");
+    const ctx = canvas.getContext("2d");
+
+    let alunos = [];
+    let sorteados = [];
+
+    let anguloAtual = 0;
+    let girando = false;
+
+
+    /*
+    ========================================
+    CARREGAR ALUNOS
+    ========================================
+    */
+
+    function carregarAlunos() {
+
+        const texto = document
+            .getElementById("listaAlunos")
+            .value;
+
+        alunos = texto
+            .split("\n")
+            .map(nome => nome.trim())
+            .filter(nome => nome !== "");
+
+        sorteados = [];
+
+        atualizarTela();
+        desenharRoleta();
+
+        document.getElementById("alunoSorteado").textContent = "—";
+    }
+
+
+    /*
+    ========================================
+    DESENHAR ROLETA
+    ========================================
+    */
+
+    function desenharRoleta() {
+
+        const centroX = canvas.width / 2;
+        const centroY = canvas.height / 2;
+
+        const raio = 190;
+
+        ctx.clearRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+
+        if (alunos.length === 0) {
+
+            ctx.beginPath();
+
+            ctx.arc(
+                centroX,
+                centroY,
+                raio,
+                0,
+                Math.PI * 2
+            );
+
+            ctx.fillStyle = "#ddd";
+            ctx.fill();
+
+            ctx.fillStyle = "#555";
+            ctx.font = "bold 22px Arial";
+            ctx.textAlign = "center";
+
+            ctx.fillText(
+                "Adicione alunos",
+                centroX,
+                centroY
+            );
+
+            return;
+        }
+
+
+        const quantidade = alunos.length;
+
+        const anguloPorAluno =
+            (Math.PI * 2) / quantidade;
+
+
+        alunos.forEach((aluno, indice) => {
+
+            const inicio =
+                anguloAtual +
+                indice * anguloPorAluno;
+
+            const fim =
+                inicio +
+                anguloPorAluno;
+
+
+            /*
+            Cores alternadas
+            */
+
+            const cores = [
+                "#ff6384",
+                "#36a2eb",
+                "#ffce56",
+                "#4bc0c0",
+                "#9966ff",
+                "#ff9f40"
+            ];
+
+            ctx.beginPath();
+
+            ctx.moveTo(
+                centroX,
+                centroY
+            );
+
+            ctx.arc(
+                centroX,
+                centroY,
+                raio,
+                inicio,
+                fim
+            );
+
+            ctx.closePath();
+
+            ctx.fillStyle =
+                cores[indice % cores.length];
+
+            ctx.fill();
+
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+
+            /*
+            Texto
+            */
+
+            const anguloTexto =
+                inicio + anguloPorAluno / 2;
+
+            const textoX =
+                centroX +
+                Math.cos(anguloTexto) * 120;
+
+            const textoY =
+                centroY +
+                Math.sin(anguloTexto) * 120;
+
+
+            ctx.save();
+
+            ctx.translate(
+                textoX,
+                textoY
+            );
+
+            ctx.rotate(anguloTexto);
+
+            ctx.fillStyle = "#fff";
+
+            ctx.font = "bold 14px Arial";
+
+            ctx.textAlign = "center";
+
+            let nome = aluno;
+
+            /*
+            Evita textos muito grandes
+            */
+
+            if (nome.length > 16) {
+                nome = nome.substring(0, 15) + "...";
+            }
+
+            ctx.fillText(
+                nome,
+                0,
+                0
+            );
+
+            ctx.restore();
+
+        });
+
+
+        /*
+        Círculo central
+        */
+
+        ctx.beginPath();
+
+        ctx.arc(
+            centroX,
+            centroY,
+            35,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle = "#fff";
+        ctx.fill();
+
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+    }
+
+
+    /*
+    ========================================
+    GIRAR ROLETA
+    ========================================
+    */
+
+    function girarRoleta() {
+
+        if (girando) {
+            return;
+        }
+
+        if (alunos.length === 0) {
+
+            alert(
+                "Adicione alunos antes de realizar o sorteio."
+            );
+
+            return;
+        }
+
+
+        if (alunos.length === 1) {
+
+            selecionarAluno(0);
+
+            return;
+        }
+
+
+        girando = true;
+
+
+        /*
+        Escolhe aleatoriamente o vencedor
+        */
+
+        const indiceVencedor =
+            Math.floor(
+                Math.random() * alunos.length
+            );
+
+
+        /*
+        Quantidade de segmentos
+        */
+
+        const anguloPorAluno =
+            (Math.PI * 2) / alunos.length;
+
+
+        /*
+        Queremos que o segmento vencedor
+        pare no ponteiro superior.
+        */
+
+        const anguloCentro =
+            indiceVencedor * anguloPorAluno +
+            anguloPorAluno / 2;
+
+
+        const voltas =
+            5 + Math.floor(Math.random() * 3);
+
+
+        const anguloFinal =
+            anguloAtual +
+            voltas * Math.PI * 2 +
+            (Math.PI * 1.5 - anguloCentro);
+
+
+        const duracao = 5000;
+
+        const inicio = performance.now();
+
+        const anguloInicial = anguloAtual;
+
+
+        function animar(tempo) {
+
+            const progresso =
+                Math.min(
+                    (tempo - inicio) / duracao,
+                    1
+                );
+
+
+            /*
+            Efeito de desaceleração
+            */
+
+            const ease =
+                1 - Math.pow(1 - progresso, 4);
+
+
+            anguloAtual =
+                anguloInicial +
+                (anguloFinal - anguloInicial) * ease;
+
+
+            desenharRoleta();
+
+
+            if (progresso < 1) {
+
+                requestAnimationFrame(animar);
+
+            } else {
+
+                anguloAtual =
+                    anguloFinal % (Math.PI * 2);
+
+                selecionarAluno(indiceVencedor);
+
+                girando = false;
+            }
+
+        }
+
+
+        requestAnimationFrame(animar);
+
+    }
+
+
+    /*
+    ========================================
+    SELECIONAR ALUNO
+    ========================================
+    */
+
+    function selecionarAluno(indice) {
+
+        const aluno = alunos[indice];
+
+
+        document.getElementById(
+            "alunoSorteado"
+        ).textContent = aluno;
+
+
+        sorteados.push(aluno);
+
+
+        /*
+        Remove o aluno da lista
+        */
+
+        alunos.splice(indice, 1);
+
+
+        atualizarTela();
+
+        desenharRoleta();
+
+    }
+
+
+    /*
+    ========================================
+    ATUALIZAR TELA
+    ========================================
+    */
+
+    function atualizarTela() {
+
+        document.getElementById(
+            "contador"
+        ).textContent = alunos.length;
+
+
+        const listaDisponiveis =
+            document.getElementById(
+                "listaDisponiveis"
+            );
+
+        listaDisponiveis.innerHTML = "";
+
+
+        alunos.forEach((aluno, indice) => {
+
+            const li =
+                document.createElement("li");
+
+            li.textContent =
+                `${indice + 1}. ${aluno}`;
+
+            listaDisponiveis.appendChild(li);
+
+        });
+
+
+        const listaSorteados =
+            document.getElementById(
+                "listaSorteados"
+            );
+
+        listaSorteados.innerHTML = "";
+
+
+        sorteados.forEach((aluno, indice) => {
+
+            const li =
+                document.createElement("li");
+
+            li.textContent =
+                `🏆 ${indice + 1}. ${aluno}`;
+
+            listaSorteados.appendChild(li);
+
+        });
+
+    }
+
+
+    /*
+    ========================================
+    RESETAR
+    ========================================
+    */
+
+    function resetar() {
+
+        const texto =
+            document.getElementById(
+                "listaAlunos"
+            ).value;
+
+
+        alunos = texto
+            .split("\n")
+            .map(nome => nome.trim())
+            .filter(nome => nome !== "");
+
+
+        sorteados = [];
+
+        anguloAtual = 0;
+
+        document.getElementById(
+            "alunoSorteado"
+        ).textContent = "—";
+
+
+        atualizarTela();
+
+        desenharRoleta();
+
+    }
+
+
+    /*
+    ========================================
+    INICIALIZAÇÃO
+    ========================================
+    */
+
+    desenharRoleta();
+
+</script>
+
+</body>
+</html>
