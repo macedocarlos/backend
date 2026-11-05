@@ -1,78 +1,86 @@
 const express = require('express');
-const mysql = require('../mysql').pool;
+const prisma = require('../prisma');
+
+const modelByTable = {
+    categorias: prisma.categoria,
+    clientes: prisma.cliente,
+    entradas: prisma.entrada,
+    estoque: prisma.estoque,
+    fornecedores: prisma.fornecedor,
+    funcionarios: prisma.funcionario,
+    historico_precos: prisma.historicoPreco,
+    logs: prisma.log,
+    movimentacoes: prisma.movimentacao,
+    pedidos: prisma.pedido,
+    pedido_itens: prisma.pedidoItem,
+    produtos: prisma.produto,
+    saidas: prisma.saida
+};
 
 function createCrudRouter({ table, idColumn, fields, resource }) {
     const router = express.Router();
+    const model = modelByTable[table];
 
-    router.get('/', (req, res) => {
-        mysql.getConnection((error, conn) => {
-            if (error) return res.status(500).send({ error });
-            conn.query(`SELECT * FROM ${table}`, (queryError, resultado) => {
-                conn.release();
-                if (queryError) return res.status(500).send({ error: queryError });
-                res.status(200).send({ [resource]: resultado });
-            });
+    if (!model) throw new Error(`Modelo Prisma não configurado para a tabela ${table}.`);
+
+    function parseId(value) {
+        const id = Number(value);
+        return Number.isInteger(id) && id > 0 ? id : null;
+    }
+
+    router.get('/', async (req, res) => {
+        const resultado = await model.findMany();
+        res.status(200).send({ [resource]: resultado });
+    });
+
+    router.get('/:id', async (req, res) => {
+        const id = parseId(req.params.id);
+        if (id === null) return res.status(400).send({ mensagem: 'ID inválido.' });
+
+        const resultado = await model.findUnique({ where: { [idColumn]: id } });
+        if (!resultado) return res.status(404).send({ mensagem: 'Registro não encontrado.' });
+        res.status(200).send({ [resource]: resultado });
+    });
+
+    router.post('/', async (req, res) => {
+        const data = Object.fromEntries(fields.map((field) => [field, req.body[field] ?? null]));
+        const resultado = await model.create({ data });
+        res.status(201).send({
+            mensagem: 'Registro criado com sucesso!',
+            [idColumn]: resultado[idColumn]
         });
     });
 
-    router.get('/:id', (req, res) => {
-        mysql.getConnection((error, conn) => {
-            if (error) return res.status(500).send({ error });
-            conn.query(`SELECT * FROM ${table} WHERE ${idColumn} = ?`, [req.params.id], (queryError, resultado) => {
-                conn.release();
-                if (queryError) return res.status(500).send({ error: queryError });
-                if (resultado.length === 0) return res.status(404).send({ mensagem: 'Registro não encontrado.' });
-                res.status(200).send({ [resource]: resultado[0] });
-            });
-        });
+    router.patch('/:id', async (req, res) => {
+        const id = parseId(req.params.id);
+        if (id === null) return res.status(400).send({ mensagem: 'ID inválido.' });
+
+        const updatedFields = fields.filter((field) => Object.prototype.hasOwnProperty.call(req.body, field));
+        if (updatedFields.length === 0) {
+            return res.status(400).send({ mensagem: 'Informe ao menos um campo válido para atualizar.' });
+        }
+
+        const data = Object.fromEntries(updatedFields.map((field) => [field, req.body[field]]));
+        try {
+            await model.update({ where: { [idColumn]: id }, data });
+            res.status(202).send({ mensagem: 'Registro atualizado com sucesso!' });
+        } catch (error) {
+            if (error.code === 'P2025') return res.status(404).send({ mensagem: 'Registro não encontrado.' });
+            throw error;
+        }
     });
 
-    router.post('/', (req, res) => {
-        mysql.getConnection((error, conn) => {
-            if (error) return res.status(500).send({ error });
-            const columns = fields.join(', ');
-            const placeholders = fields.map(() => '?').join(', ');
-            const values = fields.map((field) => req.body[field] ?? null);
-            conn.query(`INSERT INTO ${table} (${columns}) VALUES (${placeholders})`, values, (queryError, resultado) => {
-                conn.release();
-                if (queryError) return res.status(500).send({ error: queryError });
-                res.status(201).send({
-                    mensagem: 'Registro criado com sucesso!',
-                    [idColumn]: resultado.insertId
-                });
-            });
-        });
-    });
+    router.delete('/:id', async (req, res) => {
+        const id = parseId(req.params.id);
+        if (id === null) return res.status(400).send({ mensagem: 'ID inválido.' });
 
-    router.patch('/:id', (req, res) => {
-        mysql.getConnection((error, conn) => {
-            if (error) return res.status(500).send({ error });
-            const updatedFields = fields.filter((field) => Object.prototype.hasOwnProperty.call(req.body, field));
-            if (updatedFields.length === 0) {
-                conn.release();
-                return res.status(400).send({ mensagem: 'Informe ao menos um campo válido para atualizar.' });
-            }
-            const assignments = updatedFields.map((field) => `${field} = ?`).join(', ');
-            const values = updatedFields.map((field) => req.body[field]);
-            values.push(req.params.id);
-            conn.query(`UPDATE ${table} SET ${assignments} WHERE ${idColumn} = ?`, values, (queryError) => {
-                conn.release();
-                if (queryError) return res.status(500).send({ error: queryError });
-                res.status(202).send({ mensagem: 'Registro atualizado com sucesso!' });
-            });
-        });
-    });
-
-    router.delete('/:id', (req, res) => {
-        mysql.getConnection((error, conn) => {
-            if (error) return res.status(500).send({ error });
-            conn.query(`DELETE FROM ${table} WHERE ${idColumn} = ?`, [req.params.id], (queryError, resultado) => {
-                conn.release();
-                if (queryError) return res.status(500).send({ error: queryError });
-                if (resultado.affectedRows === 0) return res.status(404).send({ mensagem: 'Registro não encontrado.' });
-                res.status(202).send({ mensagem: 'Registro removido com sucesso!' });
-            });
-        });
+        try {
+            await model.delete({ where: { [idColumn]: id } });
+            res.status(202).send({ mensagem: 'Registro removido com sucesso!' });
+        } catch (error) {
+            if (error.code === 'P2025') return res.status(404).send({ mensagem: 'Registro não encontrado.' });
+            throw error;
+        }
     });
 
     return router;

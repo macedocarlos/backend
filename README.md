@@ -1,6 +1,6 @@
 # API da Loja
 
-API REST para administrar os dados de uma loja, incluindo catálogo de produtos, estoque, clientes, fornecedores, funcionários, pedidos e usuários. A aplicação usa Node.js, Express e MySQL, com o esquema definido em `profcarlosmacedo_loja_oficial.sql`.
+API REST para administrar os dados de uma loja, incluindo catálogo de produtos, estoque, clientes, fornecedores, funcionários, pedidos e usuários. A aplicação usa Node.js, Express, Prisma ORM e MySQL, com o esquema definido em `profcarlosmacedo_loja_oficial.sql`.
 
 ## Executar
 
@@ -10,29 +10,36 @@ API REST para administrar os dados de uma loja, incluindo catálogo de produtos,
    npm install
    ```
 
-2. Importe `profcarlosmacedo_loja_oficial.sql` no MariaDB/MySQL.
+2. Importe `profcarlosmacedo_loja_oficial.sql` no MariaDB/MySQL. O arquivo SQL precisa estar disponível à parte.
 
-3. Configure as variáveis de ambiente:
+3. Configure as variáveis de ambiente no arquivo `.env`:
 
    ```env
-   DB_HOST=localhost
-   DB_PORT=3306
-   DB_USER=seu_usuario
-   DB_PASSWORD=sua_senha
-   DB_NAME=profcarlosmacedo_loja_oficial
+   DATABASE_URL="mysql://seu_usuario:sua_senha@localhost:3306/profcarlosmacedo_loja_oficial"
    JWT_SECRET=um_segredo_longo_e_aleatorio
-   port=5000
+   API_PORT=5000
    ```
 
-   `JWT_SECRET` é necessário para o login. O servidor usa `port` (minúsculo) e, se não estiver definido, inicia na porta `5000`.
+   `DATABASE_URL` é a conexão recomendada para o Prisma. Se usuário ou senha contiver caracteres especiais, eles devem estar percent-encoded na URL. Para compatibilidade, o servidor também monta essa conexão a partir das variáveis legadas `host`, `port`, `user`, `password` e `database` quando `DATABASE_URL` não estiver definida. `JWT_SECRET` é necessário para o login. A API usa `API_PORT` (ou `PORT`) e, se não estiver definido, inicia na porta `5000`; essa porta é independente da porta do MySQL.
 
-4. Inicie o servidor:
+4. Sincronize o schema Prisma com as tabelas já existentes e gere o client:
+
+   ```bash
+   npm run prisma:db-pull
+   npm run prisma:generate
+   ```
+
+   O `db pull` consulta o banco e atualiza `prisma/schema.prisma`; revise as mudanças antes de usá-las. Para apenas verificar o schema, execute `npm run prisma:validate`. Não é necessário executar migrations para conectar a um banco existente.
+
+5. Inicie o servidor:
 
    ```bash
    npm run dev
    ```
 
 O endereço local padrão é `http://localhost:5000`. As requisições e respostas usam JSON; o CORS está configurado para aceitar qualquer origem.
+
+As rotas CRUD e de usuário acessam o banco pelo Prisma Client compartilhado em `prisma.js`. O projeto não executa migrations automaticamente nem altera o banco ao iniciar.
 
 ## Recursos e endpoints
 

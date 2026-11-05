@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Categoria {
+  id_categoria Int      @id @default(autoincrement())
+  nome         String?
+  descricao    String?
+  ativo        Boolean?
+
+  @@map("categorias")
+}
+
+model Cliente {
+  id_cliente Int     @id @default(autoincrement())
+  nome       String?
+  email      String?
+  contato    String?
+  ativo      Boolean?
+
+  @@map("clientes")
+}
+
+model Entrada {
+  id_entrada     Int       @id @default(autoincrement())
+  id_produto     Int?
+  id_fornecedor  Int?
+  quantidade     Int?
+  valor_unitario Decimal?
+  data_entrada   DateTime?
+  observacao     String?
+
+  @@map("entradas")
+}
+
+model Estoque {
+  id_estoque     Int     @id @default(autoincrement())
+  id_produto     Int?
+  quantidade     Int?
+  estoque_minimo Int?
+  estoque_maximo Int?
+  localizacao    String?
+
+  @@map("estoque")
+}
+
+model Fornecedor {
+  id_fornecedor Int     @id @default(autoincrement())
+  nome          String?
+  empresa       String?
+  email         String?
+  telefone      String?
+  cidade        String?
+  estado        String?
+  ativo         Boolean?
+
+  @@map("fornecedores")
+}
+
+model Funcionario {
+  id_funcionario Int       @id @default(autoincrement())
+  nome           String?
+  cargo          String?
+  salario        Decimal?
+  telefone       String?
+  email          String?
+  data_admissao  DateTime?
+  ativo          Boolean?
+
+  @@map("funcionarios")
+}
+
+model HistoricoPreco {
+  id_historico Int       @id @default(autoincrement())
+  id_produto   Int?
+  preco        Decimal?
+  vigencia     DateTime?
+
+  @@map("historico_precos")
+}
+
+model Log {
+  id_log          Int       @id @default(autoincrement())
+  usuario         String?
+  tabela_afetada  String?
+  acao            String?
+  registro        String?
+  data_hora       DateTime?
+
+  @@map("logs")
+}
+
+model Movimentacao {
+  id_movimentacao  Int       @id @default(autoincrement())
+  id_produto       Int?
+  tipo             String?
+  quantidade       Int?
+  data_movimentacao DateTime?
+  observacao       String?
+
+  @@map("movimentacoes")
+}
+
+model Pedido {
+  id_pedido   Int       @id @default(autoincrement())
+  status      String?
+  data_pedido DateTime?
+  id_cliente  Int?
+
+  @@map("pedidos")
+}
+
+model PedidoItem {
+  id_item        Int      @id @default(autoincrement())
+  id_pedido      Int?
+  id_produto     Int?
+  quantidade     Int?
+  valor_unitario Decimal?
+  subtotal       Decimal?
+
+  @@map("pedido_itens")
+}
+
+model Produto {
+  id_produto     Int      @id @default(autoincrement())
+  nome           String?
+  descricao      String?
+  preco          Decimal?
+  imagem_produto String?
+  id_categoria   Int?
+
+  @@map("produtos")
+}
+
+model Saida {
+  id_saida      Int       @id @default(autoincrement())
+  id_produto    Int?
+  id_funcionario Int?
+  quantidade    Int?
+  valor_unitario Decimal?
+  data_saida    DateTime?
+  destino       String?
+
+  @@map("saidas")
+}
+
+model Usuario {
+  id_usu      Int       @id @default(autoincrement())
+  nome        String?
+  email       String?
+  senha       String?
+  contato     String?
+  genero      String?
+  ativo       Boolean?
+  criado_em   DateTime?
+  atualizado_em DateTime?
+
+  @@map("usuarios")
+}

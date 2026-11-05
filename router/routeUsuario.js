@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const mysql = require("../mysql").pool;
+const prisma = require('../prisma');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 // LOGIN DE USUÁRIO
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
     const { email, senha } = req.body;
     if (!email || !senha) {
         return res.status(400).send({ mensagem: 'Informe email e senha.' });
@@ -14,115 +14,122 @@ router.post('/login', (req, res) => {
         return res.status(500).send({ mensagem: 'JWT_SECRET não está configurado no servidor.' });
     }
 
-    mysql.getConnection((error, conn) => {
-        if (error) return res.status(500).send({ error });
-        conn.query(
-            'SELECT id_usu, nome, email, senha, contato, genero, ativo FROM usuarios WHERE email = ?',
-            [email],
-            (queryError, resultado) => {
-                conn.release();
-                if (queryError) return res.status(500).send({ error: queryError });
-                if (resultado.length === 0 || !resultado[0].ativo) {
-                    return res.status(401).send({ mensagem: 'Email ou senha inválidos.' });
-                }
+    const usuario = await prisma.usuario.findFirst({ where: { email } });
+    if (!usuario || !usuario.ativo) {
+        return res.status(401).send({ mensagem: 'Email ou senha inválidos.' });
+    }
 
-                const usuario = resultado[0];
-                const senhaArmazenada = usuario.senha;
-                const senhaComHashBcrypt = /^\$2[aby]\$/.test(senhaArmazenada);
-                const senhaValida = senhaComHashBcrypt
-                    ? bcrypt.compareSync(senha, senhaArmazenada)
-                    : senha === senhaArmazenada;
+    const senhaArmazenada = usuario.senha;
+    const senhaComHashBcrypt = /^\$2[aby]\$/.test(senhaArmazenada || '');
+    const senhaValida = senhaComHashBcrypt
+        ? bcrypt.compareSync(senha, senhaArmazenada)
+        : senha === senhaArmazenada;
 
-                if (!senhaValida) {
-                    return res.status(401).send({ mensagem: 'Email ou senha inválidos.' });
-                }
+    if (!senhaValida) {
+        return res.status(401).send({ mensagem: 'Email ou senha inválidos.' });
+    }
 
-                delete usuario.senha;
-                const token = jwt.sign(
-                    { id_usu: usuario.id_usu, email: usuario.email },
-                    process.env.JWT_SECRET,
-                    { expiresIn: '8h' }
-                );
-                return res.status(200).send({ mensagem: 'Login realizado com sucesso!', token, usuario });
-            }
-        );
-    });
+    delete usuario.senha;
+    const token = jwt.sign(
+        { id_usu: usuario.id_usu, email: usuario.email },
+        process.env.JWT_SECRET,
+        { expiresIn: '8h' }
+    );
+    return res.status(200).send({ mensagem: 'Login realizado com sucesso!', token, usuario });
 });
 
 //LISTAR USUÁRIOS
-router.get('/', (req, res) => {
-mysql.getConnection((error, conn) => {
-   if (error) return res.status(500).send({ error });
-    conn.query("SELECT id_usu, nome, email, contato, genero, ativo, criado_em, atualizado_em FROM usuarios", (error, resultado) => {
-       conn.release();
-  if (error) return res.status(500).send({ error });
-       res.status(200).send({ usuario: resultado });
-       });
+router.get('/', async (req, res) => {
+    const resultado = await prisma.usuario.findMany({
+        select: {
+            id_usu: true,
+            nome: true,
+            email: true,
+            contato: true,
+            genero: true,
+            ativo: true,
+            criado_em: true,
+            atualizado_em: true
+        }
     });
+    res.status(200).send({ usuario: resultado });
 });
 
 
 // BUSCAR USUÁRIO POR ID
-router.get('/:id', (req, res, next) => {
-    mysql.getConnection((error, conn) => {
-        if (error) return res.status(500).send({ error: error });
-        conn.query("SELECT id_usu, nome, email, contato, genero, ativo, criado_em, atualizado_em FROM usuarios WHERE id_usu = ?", 
-            [req.params.id], (error, resultado) => {
-            conn.release();
-            if (error) return res.status(500).send({ error: error });
-            res.status(200).send({ usuario: resultado });
-        });
+router.get('/:id', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).send({ mensagem: 'ID inválido.' });
+
+    const resultado = await prisma.usuario.findUnique({
+        where: { id_usu: id },
+        select: {
+            id_usu: true,
+            nome: true,
+            email: true,
+            contato: true,
+            genero: true,
+            ativo: true,
+            criado_em: true,
+            atualizado_em: true
+        }
     });
+    res.status(200).send({ usuario: resultado ? [resultado] : [] });
 });
 
 
 // CADASTRAR USUÁRIO
-router.post('/', (req, res, next) => {
-    mysql.getConnection((error, conn) => {
-        if (error) return res.status(500).send({ error: error });
-        conn.query(
-            "INSERT INTO usuarios (nome, email, senha, contato, genero, ativo) VALUES (?, ?, ? ,?, ?, ?)",
-            [req.body.nome, req.body.email, req.body.senha,req.body.contato,req.body.genero,req.body.ativo],
-            (error, resultado) => {
-                console.log(error)
-                conn.release();
-                if (error) return res.status(500).send({ error: error });
-                res.status(201).send({
-                    mensagem: "Usuário criado com sucesso!",
-                    id_usuario: resultado.insertId
-                });
-            }
-        );
+router.post('/', async (req, res) => {
+    const usuario = await prisma.usuario.create({
+        data: {
+            nome: req.body.nome ?? null,
+            email: req.body.email ?? null,
+            senha: req.body.senha ?? null,
+            contato: req.body.contato ?? null,
+            genero: req.body.genero ?? null,
+            ativo: req.body.ativo ?? null
+        }
+    });
+    res.status(201).send({
+        mensagem: 'Usuário criado com sucesso!',
+        id_usuario: usuario.id_usu
     });
 });
 
 
 // ATUALIZAR USUÁRIO
-router.patch('/:id', (req, res, next) => {
-    mysql.getConnection((error, conn) => {
-        if (error) return res.status(500).send({ error: error });
-        conn.query(
-            "UPDATE usuarios SET nome = ?, email = ?, senha = ? WHERE id_usu = ?",
-            [req.body.nome, req.body.email, req.body.senha, req.params.id],
-            (error, resultado) => {
-                conn.release();
-                if (error) return res.status(500).send({ error: error });
-                res.status(202).send({ mensagem: "Usuário atualizado com sucesso!" });
+router.patch('/:id', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).send({ mensagem: 'ID inválido.' });
+
+    try {
+        await prisma.usuario.update({
+            where: { id_usu: id },
+            data: {
+                nome: req.body.nome ?? null,
+                email: req.body.email ?? null,
+                senha: req.body.senha ?? null
             }
-        );
-    });
+        });
+        res.status(202).send({ mensagem: 'Usuário atualizado com sucesso!' });
+    } catch (error) {
+        if (error.code === 'P2025') return res.status(404).send({ mensagem: 'Usuário não encontrado.' });
+        throw error;
+    }
 });
 
 
-router.delete('/:id', (req, res, next) => {
-    mysql.getConnection((error, conn) => {
-        if (error) return res.status(500).send({ error: error });
-        conn.query("DELETE FROM usuarios WHERE id_usu = ?", [req.params.id], (error, resultado) => {
-            conn.release();
-            if (error) return res.status(500).send({ error: error });
-            res.status(202).send({ mensagem: "Usuário removido com sucesso!" });
-        });
-    });
+router.delete('/:id', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).send({ mensagem: 'ID inválido.' });
+
+    try {
+        await prisma.usuario.delete({ where: { id_usu: id } });
+        res.status(202).send({ mensagem: 'Usuário removido com sucesso!' });
+    } catch (error) {
+        if (error.code === 'P2025') return res.status(404).send({ mensagem: 'Usuário não encontrado.' });
+        throw error;
+    }
 });
 
 module.exports=router;
