@@ -14,8 +14,22 @@ API REST para administrar os dados de uma loja, incluindo catálogo de produtos,
 
 3. Configure as variáveis de ambiente no arquivo `.env`:
 
+   Opção recomendada com Prisma:
+
    ```env
    DATABASE_URL="mysql://seu_usuario:sua_senha@localhost:3306/profcarlosmacedo_loja_oficial"
+   JWT_SECRET=um_segredo_longo_e_aleatorio
+   API_PORT=5000
+   ```
+
+   Compatibilidade com o formato legado usado no projeto:
+
+   ```env
+   host=""
+   port="3306"
+   user=""
+   password=""
+   database="profcarlosmacedo_loja_oficial"
    JWT_SECRET=um_segredo_longo_e_aleatorio
    API_PORT=5000
    ```
